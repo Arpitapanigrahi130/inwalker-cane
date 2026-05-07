@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Guardian Pro | Live Dashboard</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --nykaa-pink: #ff3f6c; --nykaa-bg: #f3f3f3; --text-dark: #3f414d;
+            --text-light: #9496a5; --danger: #fc2779; --success: #038d63; --white: #ffffff;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--nykaa-bg); margin: 0; padding: 0; color: var(--text-dark);
+            -webkit-tap-highlight-color: transparent; overflow-x: hidden;
+        }
+
+        /* --- NAVBAR --- */
+        .navbar {
+            width: 100%; height: 50px; background: var(--white);
+            display: flex; align-items: center; padding: 0 12px; box-sizing: border-box;
+            border-bottom: 1px solid #eaeaec; position: fixed; top: 0; z-index: 1000;
+        }
+        .logo { font-weight: 800; font-size: 16px; color: var(--nykaa-pink); letter-spacing: 1.2px; flex-grow: 1; text-align: center; margin-right: 30px; }
+        .menu-btn { font-size: 20px; cursor: pointer; color: var(--text-dark); }
+
+        /* --- SIDE DRAWER --- */
+        .side-menu {
+            position: fixed; left: -100%; top: 0; height: 100%; width: 75%;
+            background: var(--white); transition: 0.3s ease-out; z-index: 1001;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.1);
+        }
+        .side-menu.open { left: 0; }
+        .side-menu a { padding: 15px 20px; text-decoration: none; color: var(--text-dark); display: block; font-weight: 600; border-bottom: 1px solid #f8f8f8; font-size: 14px; }
+
+        /* --- POSTER AREA --- */
+        .poster-wrapper { margin-top: 50px; width: 100%; background: var(--white); }
+        .safety-poster {
+            background: linear-gradient(180deg, #fff0f3 0%, #ffffff 100%);
+            height: 55vh; max-height: 400px; position: relative; overflow: hidden; border-bottom: 1px solid #eee;
+        }
+        .poster-text { position: absolute; top: 20px; width: 100%; text-align: center; z-index: 10; }
+        .poster-text h2 { color: var(--nykaa-pink); font-size: 22px; margin: 0; font-weight: 900; text-transform: uppercase; }
+        .poster-text p { color: var(--text-light); font-size: 12px; margin-top: 4px; font-weight: 600; }
+
+        .animated-man { position: absolute; bottom: 10px; left: -150px; width: 150px; animation: walk-mobile 12s linear infinite; }
+        @keyframes walk-mobile { 0% { left: -160px; } 100% { left: 110%; } }
+
+        /* --- CONTENT CARDS --- */
+        .content { padding: 10px; box-sizing: border-box; }
+        .card { background: var(--white); border-radius: 10px; padding: 12px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.03); border: 1px solid #eee; }
+        .card-title { font-size: 9px; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+
+        .status-box { padding: 10px 8px; border-radius: 6px; text-align: center; font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+        .bg-normal { background: #f0f8ff; color: #1e90ff; }
+        .bg-walk { background: #f1fbf4; color: var(--success); }
+        .bg-alert { background: #fff5f5; color: var(--danger); animation: pulse 1s infinite; }
+
+        /* --- SENSOR GRID --- */
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .sensor-item { background: var(--white); border: 1px solid #eee; border-radius: 8px; padding: 10px 4px; text-align: center; transition: 0.3s; }
+        .sensor-item div { font-size: 16px; font-weight: 800; margin-bottom: 2px; }
+        .sensor-item span { font-size: 8px; font-weight: 700; color: var(--text-light); text-transform: uppercase; }
+        .sensor-alert { background: #fff0f3; border: 1px solid var(--nykaa-pink); }
+
+        .btn-nykaa { background: var(--nykaa-pink); color: var(--white); border: none; padding: 12px; width: 100%; border-radius: 4px; font-weight: 700; font-size: 12px; text-transform: uppercase; margin-top: 6px; }
+
+        .hidden { display: none !important; }
+        .gate { position: fixed; inset: 0; background: var(--white); z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div id="gate" class="gate">
+        <div style="font-size: 28px; font-weight: 900; color: var(--nykaa-pink); letter-spacing: 2px; margin-bottom: 10px;">GUARDIAN</div>
+        <button class="btn-nykaa" onclick="initApp()" style="width: 180px;">Open Dashboard</button>
+    </div>
+
+    <nav class="navbar">
+        <div class="menu-btn" onclick="toggleMenu()">☰</div>
+        <div class="logo">GUARDIAN PRO</div>
+    </nav>
+
+    <div id="drawer" class="side-menu">
+        <div style="padding: 15px; border-bottom: 1px solid #eee; font-weight: 900; color: var(--nykaa-pink);">GUARDIAN MENU</div>
+        <a href="#" onclick="showPage('home')">🏠 Dashboard</a>
+        <a href="#" onclick="showPage('analysis')">📊 Analysis</a>
+        <a href="#" onclick="showPage('medical')">🏥 Medical Profile</a>
+        <a href="#" onclick="showPage('settings')">⚙️ Cane Settings</a>
+        <a href="#" onclick="toggleMenu()" style="margin-top: 15px; color: var(--danger); text-align: center; font-size: 12px;">✕ Close</a>
+    </div>
+
+    <div id="main-content" class="hidden">
+        <div id="home-page" class="poster-wrapper">
+            <div class="safety-poster">
+                <div class="poster-text">
+                    <h2>Independent.</h2>
+                    <p>Live Safety Monitoring Active</p>
+                </div>
+                <img src="https://i.ibb.co/Lkhm7Y9/blind-man-walking-stick-removebg-preview.png" class="animated-man" alt="Cane User">
+            </div>
+            <div class="content">
+                <div class="card">
+                    <div class="card-title">Cane Activity (Live)</div>
+                    <div id="status-box" class="status-box bg-normal">Syncing...</div>
+                    <div style="text-align:center; font-size: 9px; color: var(--text-light);">Last updated: <span id="time">--:--</span></div>
+                </div>
+                <div class="grid-3">
+                    <div id="obs-card" class="sensor-item"><div id="obs-icon">Safe</div><span>Obstacle</span></div>
+                    <div id="water-card" class="sensor-item"><div id="water-icon">Dry Surface</div><span>Water</span></div>
+                    <div id="light-card" class="sensor-item"><div id="light-icon">Bright ☀️</div><span>Light</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="analysis-page" class="content hidden" style="margin-top: 60px;">
+            <div class="card"><div class="card-title">Stats</div><canvas id="myChart" height="200"></canvas><button class="btn-nykaa" onclick="showPage('home')">Back</button></div>
+        </div>
+        <div id="medical-page" class="content hidden" style="margin-top: 60px;">
+            <div class="card"><div class="card-title">User Info</div><p>Name: Ms. Arpita Panigrahi</p><p>Blood: B+</p><p>Age:23</p><p>Gender: Female</p><button class="btn-nykaa" onclick="showPage('home')">Back</button></div>
+        </div>
+        <div id="settings-page" class="content hidden" style="margin-top: 60px;">
+            <div class="card"><div class="card-title">Hardware</div><p>Battery: 92%</p><p>ESP32 Status: Online</p><button class="btn-nykaa" onclick="showPage('home')">Back</button></div>
+        </div>
+    </div>
+
+    <script>
+        // FIREBASE SETUP
+        const firebaseConfig = { databaseURL: "https://smart-cane-d4b70-default-rtdb.firebaseio.com/" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        function toggleMenu() { document.getElementById('drawer').classList.toggle('open'); }
+        function initApp() { document.getElementById('gate').classList.add('hidden'); document.getElementById('main-content').classList.remove('hidden'); }
+        function showPage(p) { ['home','analysis','medical','settings'].forEach(id => document.getElementById(id+'-page').classList.add('hidden')); document.getElementById(p+'-page').classList.remove('hidden'); toggleMenu(); }
+
+        // REAL-TIME LISTENER (MATCHED TO ARDUINO CODE)
+        db.ref("/status").on("value", (snapshot) => {
+            const data = snapshot.val();
+            if(!data) return;
+
+            // 1. Activity Management
+            const sBox = document.getElementById("status-box");
+            const activity = data.current || "Standing";
+            sBox.innerText = activity;
+            document.getElementById("time").innerText = new Date().toLocaleTimeString();
+
+            if(activity === "Tilted / Fallen") sBox.className = "status-box bg-alert";
+            else if(activity === "Walking") sBox.className = "status-box bg-walk";
+            else sBox.className = "status-box bg-normal";
+
+            // 2. Obstacle Update (Arduino: "Alert: Object Nearby" / "Path Clear")
+            const obs = data.obstacle || "";
+            if(obs.includes("Alert")) {
+                document.getElementById("obs-icon").innerText = "Obstracle ⛔";
+                document.getElementById("obs-card").classList.add("sensor-alert");
+            } else {
+                document.getElementById("obs-icon").innerText = "Safe";
+                document.getElementById("obs-card").classList.remove("sensor-alert");
+            }
+
+            // 3. Water Update (Arduino: "Alert: Water Detected" / "Dry Surface")
+            const water = data.water || "";
+            if(water.includes("Alert")) {
+                document.getElementById("water-icon").innerText = "Wet Surface 💧";
+                document.getElementById("water-card").classList.add("sensor-alert");
+            } else {
+                document.getElementById("water-icon").innerText = "Dry Surface";
+                document.getElementById("water-card").classList.remove("sensor-alert");
+            }
+
+            // 4. Light Update (Arduino: "Alert: Dark Environment" / "Normal Lighting")
+            const light = data.light || "";
+            if(light.includes("Alert")) {
+                document.getElementById("light-icon").innerText = "Dark 🌙";
+                document.getElementById("light-card").classList.add("sensor-alert");
+            } else {
+                document.getElementById("light-icon").innerText = "Bright ☀️";
+                document.getElementById("light-card").classList.remove("sensor-alert");
+            }
+        });
+
+        // Dummy Chart
+        const ctx = document.getElementById('myChart').getContext('2d');
+        new Chart(ctx, { type: 'bar', data: { labels: ['M','T','W','T','F'], datasets: [{ label: 'Safety Events', data: [2,1,4,0,3], backgroundColor: '#ff3f6c' }] }, options: { responsive: true, maintainAspectRatio: false } });
+    </script>
+</body>
+</html>
